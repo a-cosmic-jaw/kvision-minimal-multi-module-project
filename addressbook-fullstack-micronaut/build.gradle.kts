@@ -1,26 +1,14 @@
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 
 plugins {
-    val kotlinVersion: String by System.getProperties()
-    kotlin("plugin.serialization") version kotlinVersion
-    kotlin("multiplatform") version kotlinVersion
-    kotlin("plugin.allopen") version kotlinVersion
-    kotlin("kapt") version kotlinVersion
-    val shadowVersion: String by System.getProperties()
-    id("com.github.johnrengelman.shadow") version shadowVersion
-    val kvisionVersion: String by System.getProperties()
-    id("io.kvision") version kvisionVersion
-    val micronautPluginsVersion: String by System.getProperties()
-    id("io.micronaut.application") version micronautPluginsVersion
-    id("io.micronaut.aot") version micronautPluginsVersion
-}
-
-version = "1.0.0-SNAPSHOT"
-group = "com.example"
-
-repositories {
-    mavenCentral()
-    mavenLocal()
+    kotlin("plugin.serialization")
+    kotlin("multiplatform")
+    kotlin("plugin.allopen")
+    kotlin("kapt")
+    id("com.github.johnrengelman.shadow")
+    id("io.kvision")
+    id("io.micronaut.application")
+    id("io.micronaut.aot")
 }
 
 // Versions
@@ -37,8 +25,6 @@ val reactorAdapterVersion: String by project
 val kweryVersion: String by project
 val h2DatabaseVersion: String by project
 
-val mainClassNameVal = "com.example.MainKt"
-
 configurations.all {
     resolutionStrategy.eachDependency {
         if (requested.group == "io.r2dbc") {
@@ -47,6 +33,7 @@ configurations.all {
     }
 }
 
+val mainClassNameVal = "com.example.MainKt"
 application {
     mainClass.set(mainClassNameVal)
 }
