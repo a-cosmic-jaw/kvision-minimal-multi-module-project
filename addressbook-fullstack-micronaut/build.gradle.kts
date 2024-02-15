@@ -1,3 +1,4 @@
+import io.kvision.gradle.KVisionPlugin
 import io.kvision.gradle.tasks.KVWorkerBundleTask
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 //import com.github.node-gradle.node.task.NodeTask
@@ -17,6 +18,15 @@ plugins {
     id("io.kvision")
     id("io.micronaut.application")
     id("io.micronaut.aot")
+}
+
+pluginManager.withPlugin("io.kvision") {
+    println("hejhejhej\n\n")
+    //val kvp = this as KVisionPlugin
+    when (this) {
+        is KVisionPlugin -> println("kakakkakaka")
+        else -> println("kukukuku")
+    }
 }
 
 // Versions
