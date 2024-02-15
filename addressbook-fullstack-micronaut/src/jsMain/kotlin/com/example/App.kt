@@ -22,15 +22,15 @@ val AppScope = CoroutineScope(window.asCoroutineDispatcher())
 
 class App : Application() {
     init {
-        require("css/kvapp.css")
+        require("./css/kvapp.css")
     }
 
     override fun start() {
         I18n.manager =
             DefaultI18nManager(
                 mapOf(
-                    "en" to require("i18n/messages-en.json"),
-                    "pl" to require("i18n/messages-pl.json")
+                    "en" to require("./i18n/messages-en.json"),
+                    "pl" to require("./i18n/messages-pl.json")
                 )
             )
         root("kvapp") {

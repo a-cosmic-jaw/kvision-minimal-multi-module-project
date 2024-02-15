@@ -1,4 +1,12 @@
+import io.kvision.gradle.tasks.KVWorkerBundleTask
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
+//import com.github.node-gradle.node.task.NodeTask
+
+buildscript {
+    dependencies {
+        classpath("com.github.node-gradle:gradle-node-plugin:3.0.0")
+    }
+}
 
 plugins {
     kotlin("plugin.serialization")
@@ -42,6 +50,146 @@ allOpen {
     annotation("io.micronaut.aop.Around")
 }
 
+tasks.register("installNpmDependencies") {
+    // Specify the command to execute
+    val commands = mapOf(
+        "mkdir" to "mkdir",
+        "gettext" to "npm")
+
+    // Specify the arguments for the command
+    val argumentsMap = mapOf(
+        "mkdir" to listOf("-p", rootProject.buildDir.absolutePath + "/js"),
+        "gettext" to listOf("install", "--prefix", rootProject.buildDir.absolutePath + "/js", "gettext.js"))
+
+    // Define the task action
+    doLast {
+        commands.forEach { name, command ->
+            val arguments = argumentsMap[name]!!
+            // Create ProcessBuilder for running the shell command
+            val processBuilder = ProcessBuilder(command, *arguments.toTypedArray())
+
+            // Set the working directory if necessary
+            processBuilder.directory(File(rootProject.projectDir, ""))
+
+            // Redirect standard output and error to Gradle's logger
+            processBuilder.redirectOutput(ProcessBuilder.Redirect.PIPE)
+            processBuilder.redirectError(ProcessBuilder.Redirect.PIPE)
+
+            // Start the process
+            val process = processBuilder.start()
+
+            // Wait for the process to finish and capture the exit code
+            val exitCode = process.waitFor()
+
+            // Log the output
+            val output = process.inputStream.bufferedReader().readText()
+            val errorOutput = process.errorStream.bufferedReader().readText()
+            if ("" != output)
+                logger.lifecycle("Script output:\n$output")
+            if ("" != errorOutput)
+                logger.log(LogLevel.ERROR, "Script error output:\n$errorOutput")
+
+            // Check the exit code and throw an exception if non-zero
+            if (exitCode != 0) {
+                throw GradleException("Script execution failed with exit code $exitCode")
+            }
+        }
+    }
+}
+tasks.getByName("convertPoToJson").dependsOn("installNpmDependencies")
+
+
+tasks.register("copyFilesNeededForWebpack") {
+    // Specify the command to execute
+    val commands = mapOf(
+        "mkdir" to "mkdir",
+        "cp" to "cp")
+
+    // Specify the arguments for the command
+    val baseDestPath = rootProject.buildDir.absolutePath + "/js/packages/" + rootProject.name + "-" + project.name + "/kotlin"
+    val baseSourcePath = project.projectDir.absolutePath + "/src/jsMain/resources"
+    val argumentsMap = mapOf(
+        "mkdir" to listOf("-p", "$baseDestPath/i18n $baseDestPath/css"),
+        "cp" to listOf("$baseSourcePath/i18n/messages-en.json", "$baseDestPath/i18n/"))
+
+    // Define the task action
+    doLast {
+        commands.forEach { (name, command) ->
+            logger.log(LogLevel.ERROR, "name $name:")
+            val arguments = argumentsMap[name]!!
+            // Create ProcessBuilder for running the shell command
+            val processBuilder = ProcessBuilder(command, *arguments.toTypedArray())
+
+            // Set the working directory if necessary
+            processBuilder.directory(File(rootProject.projectDir, ""))
+
+            // Redirect standard output and error to Gradle's logger
+            processBuilder.redirectOutput(ProcessBuilder.Redirect.PIPE)
+            processBuilder.redirectError(ProcessBuilder.Redirect.PIPE)
+
+            // Start the process
+            val process = processBuilder.start()
+
+            // Wait for the process to finish and capture the exit code
+            val exitCode = process.waitFor()
+
+            // Log the output
+            val output = process.inputStream.bufferedReader().readText()
+            val errorOutput = process.errorStream.bufferedReader().readText()
+            if ("" != output)
+                logger.lifecycle("Script output:\n$output")
+            if ("" != errorOutput)
+                logger.log(LogLevel.ERROR, "Script error output:\n$errorOutput")
+
+            // Check the exit code and throw an exception if non-zero
+            if (exitCode != 0) {
+                throw GradleException("Script execution failed with exit code $exitCode")
+            }
+        }
+    }
+}
+//tasks.getByName("build").dependsOn("copyFilesNeededForWebpack")
+
+tasks.register("runScript") {
+    // Specify the command to execute
+    val command = "./copyFilesNeededForWebpack.sh"
+
+    // Specify the arguments for the command
+    //val destPath = rootProject.buildDir.absolutePath + "/js/packages/" + rootProject.name + "-" + project.name
+    //val sourcePath = project.projectDir.absolutePath
+    val arguments = listOf(rootProject.projectDir.absolutePath)
+
+    // Define the task action
+    doLast {
+        // Create ProcessBuilder for running the shell command
+        val processBuilder = ProcessBuilder(command, *arguments.toTypedArray())
+        // Set the working directory if necessary
+        processBuilder.directory(File(rootProject.projectDir, "/scripts"))
+
+        // Redirect standard output and error to Gradle's logger
+        processBuilder.redirectOutput(ProcessBuilder.Redirect.PIPE)
+        processBuilder.redirectError(ProcessBuilder.Redirect.PIPE)
+
+        // Start the process
+        val process = processBuilder.start()
+
+        // Wait for the process to finish and capture the exit code
+        val exitCode = process.waitFor()
+
+        // Log the output
+        val output = process.inputStream.bufferedReader().readText()
+        val errorOutput = process.errorStream.bufferedReader().readText()
+        logger.lifecycle("Script output:\n$output")
+        logger.lifecycle("Script error output:\n$errorOutput")
+
+        // Check the exit code and throw an exception if non-zero
+        if (exitCode != 0) {
+            throw GradleException("Script execution failed with exit code $exitCode")
+        }
+    }
+}
+
+
 kotlin {
     jvmToolchain(17)
     jvm {
@@ -72,6 +220,8 @@ kotlin {
             })
             webpackTask(Action {
                 mainOutputFileName = "main.bundle.js"
+                //inputFilesDirectory.dir("test")
+
             })
             testTask(Action {
                 useKarma {
@@ -135,6 +285,7 @@ kotlin {
                 implementation("io.kvision:kvision-i18n:$kvisionVersion")
             }
         }
+        //jsMain.resources.srcDir("src/jsMain/web")
         val jsTest by getting {
             dependencies {
                 implementation(kotlin("test-js"))
@@ -142,6 +293,25 @@ kotlin {
             }
         }
     }
+}
+
+tasks.getByName("jsBrowserProductionWebpack").dependsOn("runScript")
+// org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
+
+val rootNodeModulesDir = objects.directoryProperty().convention(rootProject.layout.buildDirectory.dir("js/node_modules/"))
+
+tasks.withType<KVWorkerBundleTask>().configureEach {
+    webpackJs.set(
+        rootNodeModulesDir.file("./webpack/bin/webpack.js")
+    )
+    webpackConfigJs.set(
+        rootProject.layout.buildDirectory.file("js/packages/${rootProject.name}-worker/webpack.config.js")
+    )
+    args(
+        webpackJs.get(),
+        "--config",
+        webpackConfigJs.get(),
+    )
 }
 
 micronaut {
@@ -192,3 +362,4 @@ dependencies {
     "kaptTest"(platform("io.micronaut.platform:micronaut-platform:$micronautVersion"))
     "kaptTest"("io.micronaut:micronaut-inject-java")
 }
+
